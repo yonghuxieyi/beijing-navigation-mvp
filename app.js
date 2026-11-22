@@ -7,6 +7,7 @@
   const distEl = document.getElementById("dist");
   const durEl = document.getElementById("dur");
   const noteEl = document.getElementById("note");
+  const filterEl = document.getElementById("filter-line");
   const btn = document.getElementById("btn");
   const hint = document.getElementById("hint");
   const rowStart = document.getElementById("row-start");
@@ -22,8 +23,11 @@
   let startMarker = null;
   let endMarker = null;
   let map;
-  let bboxNet = null;
   let placesIndex = [];
+  let worker = null;
+  let workerReady = false;
+  let routeReqId = 0;
+  let baselineNote = "";
 
   const emptyStyle = {
     version: 8,
@@ -52,9 +56,30 @@
     const bits = [];
     if (place && place.address) bits.push(place.address);
     if (place && place.kind) bits.push(place.kind);
-    if (place && place.geom && place.geom !== "node") bits.push("几何质心");
+    if (place && (place.kind || "").indexOf("landuse") === 0) bits.push("几何质心，须能吸附到附近道路");
     bits.push(fmtCoord(p));
     return bits.join(" · ");
+  }
+
+  async function fetchJsonGz(url) {
+    async function decode(buf) {
+      const u8 = new Uint8Array(buf);
+      const isGzip = u8.length >= 2 && u8[0] === 0x1f && u8[1] === 0x8b;
+      if (isGzip) {
+        if (typeof DecompressionStream === "undefined") throw new Error("需要支持解压的浏览器（Safari 16.4+）");
+        const stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream("gzip"));
+        return JSON.parse(await new Response(stream).text());
+      }
+      return JSON.parse(new TextDecoder().decode(buf));
+    }
+    const r = await fetch(url);
+    if (r.ok) return decode(await r.arrayBuffer());
+    const plain = url.replace(/\.gz(\?|$)/, "$1");
+    if (plain !== url) {
+      const r2 = await fetch(plain);
+      if (r2.ok) return decode(await r2.arrayBuffer());
+    }
+    throw new Error(url + " " + r.status);
   }
 
   function setPick(which) {
@@ -99,9 +124,8 @@
         endMarker = null;
       }
     }
-    btn.disabled = !(start && end);
-    distEl.textContent = "—";
-    durEl.textContent = "—";
+    btn.disabled = !(start && end && workerReady);
+    resetRouteFeedback();
   }
 
   function applyPoint(which, lng, lat, sel, inputValue) {
@@ -120,24 +144,35 @@
       endSub.textContent = descOf(sel && sel.place, p);
       setMarker("end", lngLat);
     }
-    btn.disabled = !(start && end);
+    btn.disabled = !(start && end && workerReady);
     if (start && !end) setPick("end");
-    distEl.textContent = "—";
-    durEl.textContent = "—";
+    resetRouteFeedback();
     hideSuggest();
+    if (map && start && end) {
+      const b = new maplibregl.LngLatBounds();
+      b.extend(start); b.extend(end);
+      map.fitBounds(b, { padding: { top: 40, left: 30, right: 30, bottom: 320 }, maxZoom: 15 });
+    }
   }
 
   function placeFromMap(which, lngLat) {
     applyPoint(which, lngLat.lng, lngLat.lat, { source: "map", name: "地图选点" }, "地图选点");
     const sub = (which === "start" ? startSub : endSub);
     if (!inScope(lngLat.lng, lngLat.lat)) {
-      sub.textContent = "所选位置在验证范围外，静态包可能无法规划。 " + fmtCoord([lngLat.lng, lngLat.lat]);
+      sub.textContent = "所选位置在当前路网提取范围外，静态包无法规划。 " + fmtCoord([lngLat.lng, lngLat.lat]);
     }
   }
 
   function hideSuggest() {
     suggestEl.hidden = true;
     suggestEl.innerHTML = "";
+  }
+
+  function routableFlag(place) {
+    if (window.PlaceSearch && window.PlaceSearch.isRoutable) return window.PlaceSearch.isRoutable(place);
+    if (place.in_extract === false) return false;
+    if (place.out_of_scope) return false;
+    return true;
   }
 
   function renderSuggest(which, query) {
@@ -161,17 +196,20 @@
       return;
     }
     r.results.forEach((place) => {
+      const ok = routableFlag(place);
       const item = document.createElement("div");
-      item.className = "suggest-item" + (place.out_of_scope || !place.in_bbox ? " out" : "");
+      item.className = "suggest-item" + (ok ? "" : " out");
       const t = document.createElement("div");
       t.className = "t";
       t.textContent = place.name;
       const d = document.createElement("div");
       d.className = "d";
       const bits = [];
+      const kindZh = place.kind_zh || (window.PlaceSearch && window.PlaceSearch.kindLabel && window.PlaceSearch.kindLabel(place.kind, place.name));
+      if (kindZh) bits.push(kindZh);
       if (place.address) bits.push(place.address);
-      if (place.kind) bits.push(place.kind);
-      if (place.out_of_scope || !place.in_bbox) bits.push(place.scope_note || "超范围，不能规划");
+      if (place.id) bits.push("OSM " + place.id);
+      if (!ok) bits.push(place.scope_note || "超范围，不能规划");
       else bits.push(fmtCoord([place.lng, place.lat]));
       d.textContent = bits.join(" · ");
       item.appendChild(t);
@@ -185,7 +223,7 @@
   function chooseCandidate(which, place) {
     const acc = window.PlaceSearch.acceptCandidate(place);
     if (!acc.ok) {
-      noteEl.textContent = acc.note || "该地点不能用于本验证范围规划。";
+      noteEl.textContent = acc.note || "该地点不能用于本范围规划。";
       return;
     }
     applyPoint(which, acc.lng, acc.lat, { source: "place", name: place.name, place: place }, place.name);
@@ -209,6 +247,7 @@
   }
 
   function setRoute(coords) {
+    if (!map) return;
     const src = map.getSource("route");
     const data = {
       type: "Feature",
@@ -217,30 +256,38 @@
     if (src) src.setData(data);
   }
 
+  function resetRouteFeedback() {
+    distEl.textContent = "—";
+    durEl.textContent = "—";
+    setRoute([]);
+    if (noteEl && baselineNote) noteEl.textContent = baselineNote;
+  }
+
+  function routeViaWorker(slng, slat, elng, elat) {
+    return new Promise((resolve, reject) => {
+      if (!worker || !workerReady) {
+        reject(new Error("路网仍在后台加载"));
+        return;
+      }
+      const id = ++routeReqId;
+      const onMsg = (ev) => {
+        const m = ev.data || {};
+        if (m.id !== id) return;
+        worker.removeEventListener("message", onMsg);
+        if (m.type === "error") reject(new Error(m.error || "worker error"));
+        else resolve(m.route);
+      };
+      worker.addEventListener("message", onMsg);
+      worker.postMessage({ type: "route", id: id, slng: slng, slat: slat, elng: elng, elat: elat, maxM: 60 });
+    });
+  }
+
   async function plan() {
     if (!start || !end) return;
     btn.disabled = true;
     btn.textContent = "规划中…";
     try {
-      let data = null;
-      if (bboxNet && window.BBoxRouter) {
-        data = window.BBoxRouter.route(bboxNet, start[0], start[1], end[0], end[1], 60);
-      }
-      const allowApi = !!(scope && scope.allow_api_fallback === true);
-      if (allowApi && (!data || !data.ok)) {
-        const r = await fetch("/api/route", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ start, end }),
-        });
-        const api = await r.json();
-        if (api && api.ok) {
-          api.notes = (api.notes || []).concat(["此条由本地全程路网服务计算，可能走出当前地图验证范围。"]);
-          data = api;
-        } else if (!data) {
-          data = api;
-        }
-      }
+      let data = await routeViaWorker(start[0], start[1], end[0], end[1]);
       if (!data) {
         data = { ok: false, status: "no_router", notes: ["静态包内没有算路数据。"] };
       }
@@ -251,7 +298,7 @@
         const extra = (data.notes || []).join(" ");
         noteEl.textContent =
           (scope && scope.disclaimer ? scope.disclaimer + " " : "") +
-          (scope && scope.scope ? "当前地图范围：" + scope.scope.name + "。" : "") +
+          (scope && scope.scope ? "当前算路范围：" + scope.scope.name + "。" : "") +
           "地点检索仅含已命名 OSM 要素，不保证所有小区。" +
           extra;
         const b = new maplibregl.LngLatBounds();
@@ -266,43 +313,86 @@
     } catch (err) {
       noteEl.textContent = "规划请求失败：" + err;
     } finally {
-      btn.disabled = !(start && end);
+      btn.disabled = !(start && end && workerReady);
       btn.textContent = "重新规划";
     }
+  }
+
+  function startWorker() {
+    if (typeof Worker === "undefined") {
+      noteEl.textContent = (noteEl.textContent || "") + " 当前浏览器不支持后台算路。";
+      return;
+    }
+    worker = new Worker("router-worker.js");
+    worker.onmessage = (ev) => {
+      const m = ev.data || {};
+      if (m.type === "ready") {
+        workerReady = true;
+        btn.disabled = !(start && end && workerReady);
+        const loadNote = "全市路网已在后台加载（约 " + Math.round((m.ms || 0) / 1000) + " 秒，" + (m.segs || "?") + " 段）。";
+        baselineNote = (baselineNote || noteEl.textContent || "") + " " + loadNote;
+        noteEl.textContent = baselineNote;
+      } else if (m.type === "error" && !m.id) {
+        noteEl.textContent = "路网加载失败：" + m.error;
+      }
+    };
+    worker.onerror = (err) => {
+      noteEl.textContent = "路网后台脚本失败：" + (err && err.message ? err.message : err);
+    };
+    const url = new URL("data/network.json.gz", window.location.href).href;
+    worker.postMessage({ type: "load", url: url });
   }
 
   async function init() {
     scope = await fetch("data/scope.json").then((r) => r.json());
     const b = scope.scope;
-    let extra = " 当前地图范围：" + b.name + "。路网与地点署名：OpenStreetMap 贡献者，ODbL 1.0。地点检索仅含已命名 OSM 要素，不保证所有小区。";
-    if (scope.suggested_test_points && scope.suggested_test_points.start) {
-      const s = scope.suggested_test_points.start, e = scope.suggested_test_points.end;
-      extra += " 静态验证示例可点选附近道路：" + s.lng.toFixed(5) + "," + s.lat.toFixed(5) + " → " + e.lng.toFixed(5) + "," + e.lat.toFixed(5) + "。";
+    const view = scope.initial_view || b;
+    let extra = " 当前算路范围：" + b.name + "。路网与地点署名：OpenStreetMap 贡献者，ODbL 1.0。地点检索仅含已命名 OSM 要素，不保证所有小区。面状地点使用质心，可能距道路超过 60 米吸附阈值，需在地图上点选附近道路。";
+    if (scope.example_places && scope.example_places.start) {
+      const s = scope.example_places.start;
+      extra += " 可检索公开地名“" + s.name + "”与“" + (scope.example_places.end_query || "龙德广场") + "”；须点选 OSM 中与该名称一致的候选项，不代替选择其他同名点。";
     }
-    noteEl.textContent = (scope.disclaimer || "") + extra;
+    baselineNote = (scope.disclaimer || "") + extra;
+    noteEl.textContent = baselineNote;
+    if (filterEl) {
+      const filt = scope.camera_filter && scope.camera_filter.label;
+      const sel = scope.camera_filter && scope.camera_filter.selection;
+      let line = filt || "只开启六环内进京证相关点；六环外与仅早晚高峰已关闭。路网为全市，不按六环裁切。";
+      if (sel) {
+        line += " 当前硬排除 " + sel.candidate_count + " 个；关闭六环外进京证 " + sel.dropped_six_ring_out_jinjingzheng + " 个；六环字段缺失或异常 " + sel.ring_unknown_jinjingzheng + " 个仅作风险；仅早晚高峰 " + sel.peak_only_count + " 个未启用。";
+      }
+      const fb = scope.file_bytes || {};
+      const segs = scope.match_report_summary && scope.match_report_summary.route_segments_citywide;
+      const sizeBits = [];
+      if (fb["network.json.gz"]) sizeBits.push("路网压缩包 " + Math.round(fb["network.json.gz"] / 104857.6) / 10 + " MB");
+      if (fb["places.json.gz"]) sizeBits.push("地点索引 " + Math.round(fb["places.json.gz"] / 104857.6) / 10 + " MB");
+      if (segs) sizeBits.push("可路由路段 " + segs);
+      if (sizeBits.length) line += " " + sizeBits.join("，") + "。";
+      filterEl.textContent = line;
+    }
 
     map = new maplibregl.Map({
       container: "map",
       style: emptyStyle,
       attributionControl: false,
-      bounds: [[b.west, b.south], [b.east, b.north]],
+      bounds: [[view.west, view.south], [view.east, view.north]],
       fitBoundsOptions: { padding: 20 },
-      minZoom: 10,
+      maxBounds: [[b.west - 0.15, b.south - 0.15], [b.east + 0.15, b.north + 0.15]],
+      minZoom: 8,
       maxZoom: 18,
     });
     map.addControl(new maplibregl.AttributionControl({ compact: true }), "top-right");
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
 
     map.on("load", async () => {
-      const [roads, excluded, cameras, risks, net, placesDoc] = await Promise.all([
-        fetch("data/roads.geojson").then((r) => r.json()),
-        fetch("data/excluded.geojson").then((r) => r.json()),
-        fetch("data/cameras.geojson").then((r) => r.json()),
-        fetch("data/risks.geojson").then((r) => r.json()),
-        fetch("data/network.json").then((r) => r.ok ? r.json() : null).catch(() => null),
-        fetch("data/places.json").then((r) => r.ok ? r.json() : null).catch(() => null),
+      startWorker();
+      const [roads, excluded, cameras, risks, placesDoc] = await Promise.all([
+        fetchJsonGz("data/roads.geojson.gz"),
+        fetchJsonGz("data/excluded.geojson.gz").catch(() => fetch("data/excluded.geojson").then((r) => r.json())),
+        fetchJsonGz("data/cameras.geojson.gz").catch(() => fetch("data/cameras.geojson").then((r) => r.json())),
+        fetchJsonGz("data/risks.geojson.gz").catch(() => fetch("data/risks.geojson").then((r) => r.json())),
+        fetchJsonGz("data/places.json.gz"),
       ]);
-      bboxNet = net;
       placesIndex = (placesDoc && placesDoc.places) || [];
       map.addSource("roads", { type: "geojson", data: roads });
       map.addSource("excluded", { type: "geojson", data: excluded });
@@ -310,16 +400,26 @@
       map.addSource("risks", { type: "geojson", data: risks });
       map.addSource("route", { type: "geojson", data: { type: "Feature", geometry: { type: "LineString", coordinates: [] } } });
 
-      map.addLayer({ id: "roads", type: "line", source: "roads",
-        paint: { "line-color": "#d0cdc6", "line-width": 2.2 } });
-      map.addLayer({ id: "excluded", type: "line", source: "excluded",
-        paint: { "line-color": "#e29a3a", "line-width": 3.2, "line-opacity": 0.95 } });
-      map.addLayer({ id: "route", type: "line", source: "route",
-        paint: { "line-color": "#1473e6", "line-width": 5, "line-opacity": 0.95 } });
-      map.addLayer({ id: "cameras", type: "circle", source: "cameras",
-        paint: { "circle-radius": 4, "circle-color": "#222", "circle-stroke-color": "#fff", "circle-stroke-width": 1 } });
-      map.addLayer({ id: "risks", type: "circle", source: "risks",
-        paint: { "circle-radius": 4, "circle-color": "#fff", "circle-stroke-color": "#8a5a00", "circle-stroke-width": 1.5 } });
+      map.addLayer({
+        id: "roads", type: "line", source: "roads", minzoom: 8,
+        paint: { "line-color": "#d0cdc6", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 0.6, 12, 1.6, 16, 3] },
+      });
+      map.addLayer({
+        id: "excluded", type: "line", source: "excluded", minzoom: 11,
+        paint: { "line-color": "#e29a3a", "line-width": 3.2, "line-opacity": 0.95 },
+      });
+      map.addLayer({
+        id: "route", type: "line", source: "route",
+        paint: { "line-color": "#1473e6", "line-width": 5, "line-opacity": 0.95 },
+      });
+      map.addLayer({
+        id: "cameras", type: "circle", source: "cameras", minzoom: 11,
+        paint: { "circle-radius": 4, "circle-color": "#222", "circle-stroke-color": "#fff", "circle-stroke-width": 1 },
+      });
+      map.addLayer({
+        id: "risks", type: "circle", source: "risks", minzoom: 11,
+        paint: { "circle-radius": 4, "circle-color": "#fff", "circle-stroke-color": "#8a5a00", "circle-stroke-width": 1.5 },
+      });
     });
 
     map.on("click", (e) => placeFromMap(pick, e.lngLat));

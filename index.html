@@ -44,8 +44,9 @@
       </div>
     </div>
     <div class="note" id="note">
-      本地验证原型，不是免罚保证。点位按未确认的 GCJ-02→WGS84 假设转换。100 米为沿关联道路的工程假设，不是官方拍摄距离。当前地图范围见下方，不是全北京。地点检索仅含已命名的 OSM 要素，不保证所有小区。
+      本地验证原型，不是免罚保证。点位按未确认的 GCJ-02→WGS84 假设转换。100 米为沿关联道路的工程假设，不是官方拍摄距离。算路范围为 OpenStreetMap 北京提取全市路网，不是六环裁切，也不是全中国。地点检索仅含已命名的 OSM 要素，不保证所有小区。
     </div>
+    <div class="filter-line" id="filter-line">只开启六环内进京证相关点；六环外与仅早晚高峰已关闭。路网为全市，不按六环裁切。</div>
     <button class="plan" id="btn" disabled>开始规划</button>
   </div>
   <script src="vendor/maplibre-gl.js"></script>

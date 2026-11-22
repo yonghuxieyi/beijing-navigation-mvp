@@ -11,6 +11,13 @@
     return String(s).trim().toLowerCase().replace(/ /g, "").replace(/\u3000/g, "").replace(/\t/g, "");
   }
 
+  function isRoutable(p) {
+    if (!p) return false;
+    if (p.in_extract === true) return true;
+    if (p.in_extract === false) return false;
+    if (Object.prototype.hasOwnProperty.call(p, "in_bbox")) return !!p.in_bbox;
+    return true;
+  }
   function typeRank(kind) {
     if (!kind) return 5;
     const i = kind.indexOf("=");
@@ -23,6 +30,47 @@
     return 4;
   }
 
+  const KIND_LABELS = {
+    "public_transport=platform": "公交站台",
+    "public_transport=stop_position": "公交停靠位置",
+    "public_transport=stop_area": "公交站区域",
+    "highway=bus_stop": "公交站",
+    "railway=stop": "轨道交通站点",
+    "railway=station": "轨道交通车站",
+    "railway=halt": "铁路乘降所",
+    "railway=platform": "轨道站台",
+    "landuse=residential": "住宅用地",
+    "landuse=retail": "商业用地",
+    "landuse=commercial": "商业用地",
+    "shop=mall": "商场",
+    "amenity=fast_food": "快餐店",
+    "amenity=restaurant": "餐厅",
+    "highway=traffic_signals": "信号灯",
+    "place=neighbourhood": "片区",
+    "place=suburb": "地区",
+    "place=quarter": "片区",
+    "place=city": "城市",
+    "place=town": "镇",
+    "place=village": "村庄",
+    "place=hamlet": "村落"
+  };
+  const KIND_PREFIX = {
+    public_transport: "公共交通", railway: "轨道交通", highway: "道路",
+    landuse: "用地", shop: "商店", amenity: "设施", leisure: "休闲场所",
+    tourism: "旅游地点", building: "建筑物", place: "地名", office: "办公", historic: "古迹"
+  };
+  function kindLabel(kind, name) {
+    if (!kind) return "未分类地点";
+    let label = KIND_LABELS[kind];
+    if (!label) {
+      const i = kind.indexOf("=");
+      const key = i < 0 ? kind : kind.slice(0, i);
+      label = KIND_PREFIX[key] || kind;
+    }
+    const transit = kind.indexOf("public_transport=") === 0 || kind.indexOf("railway=") === 0 || kind.slice(-9) === "=bus_stop";
+    if (transit && name && name.indexOf("小区") >= 0) label += "，不是住宅小区入口";
+    return label;
+  }
   function score(query, name, alts) {
     const hay = normalizeQuery(name);
     if (!hay) return null;
@@ -57,7 +105,7 @@
       const p = places[i];
       const sc = score(q, p.name || "", p.alts || []);
       if (sc == null) continue;
-      scored.push({ sc: sc, out: p.in_bbox ? 0 : 1, tr: typeRank(p.kind), name: p.name || "", id: p.id || "", p: p });
+      scored.push({ sc: sc, out: isRoutable(p) ? 0 : 1, tr: typeRank(p.kind), name: p.name || "", id: p.id || "", p: p });
     }
     scored.sort(function (a, b) {
       if (a.sc !== b.sc) return a.sc - b.sc;
@@ -73,9 +121,10 @@
     for (let i = 0; i < scored.length && i < lim; i++) {
       const p = scored[i].p;
       const item = Object.assign({}, p);
-      if (!p.in_bbox) {
+      item.kind_zh = kindLabel(p.kind, p.name);
+      if (!isRoutable(p)) {
         item.out_of_scope = true;
-        item.scope_note = "该地点在当前验证范围外，不能在本静态包中规划。";
+        item.scope_note = "该地点不在当前路网提取范围内，不能在本静态包中规划。";
       }
       results.push(item);
     }
@@ -100,12 +149,12 @@
 
   function acceptCandidate(place) {
     if (!place) return { ok: false, status: "no_candidate" };
-    if (!place.in_bbox) {
+    if (!isRoutable(place)) {
       return {
         ok: false,
         status: "out_of_scope",
         place: place,
-        note: place.scope_note || "该地点在当前验证范围外，不能在本静态包中规划。",
+        note: place.scope_note || "该地点不在当前路网提取范围内，不能在本静态包中规划。",
       };
     }
     if (place.lng == null || place.lat == null) return { ok: false, status: "missing_coords" };
@@ -117,6 +166,8 @@
     searchPlaces: searchPlaces,
     applySelection: applySelection,
     acceptCandidate: acceptCandidate,
+    isRoutable: isRoutable,
+    kindLabel: kindLabel,
     MIN_QUERY_CHARS: MIN_QUERY_CHARS,
     DEFAULT_LIMIT: DEFAULT_LIMIT,
   };

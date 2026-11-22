@@ -29,7 +29,8 @@ html, body { margin: 0; height: 100%; font-family: -apple-system, BlinkMacSystem
 .result .k { font-size: 12px; color: #888; }
 .result .v { font-size: 18px; font-weight: 600; margin-top: 2px; }
 .result .cell + .cell { border-left: 1px solid #eee; padding-left: 16px; }
-.note { font-size: 11px; line-height: 1.45; color: #8a8a8a; margin: 4px 0 10px; }
+.note { font-size: 11px; line-height: 1.45; color: #8a8a8a; margin: 4px 0 6px; }
+.filter-line { font-size: 11px; line-height: 1.45; color: #5a5a5a; margin: 0 0 10px; }
 button.plan {
   width: 100%; border: 0; border-radius: 12px; height: 46px;
   background: #1473e6; color: #fff; font-size: 17px; font-weight: 600;

@@ -1,62 +1,203 @@
 {
-  "generated_at": "2026-11-22 20:50:43 CST",
+  "generated_at": "2026-11-22 22:17:28 CST",
   "crs": "OSM 路网为 WGS84。点位按未确认的 GCJ-02→WGS84 假设转换后叠加。",
   "scope": {
-    "name": "第一版验证范围（西直门—东直门—复兴门一带，不是全北京）",
-    "west": 116.33,
-    "east": 116.44,
-    "south": 39.9,
-    "north": 39.96,
-    "note": "全北京路网与点位已在本地预处理；浏览器静态包先只放入该范围，避免悄悄截取却写成全市。"
+    "name": "北京市（OpenStreetMap Geofabrik 北京提取范围，路网不按六环裁切）",
+    "west": 115.39576,
+    "east": 117.52682,
+    "south": 39.43183,
+    "north": 41.06878,
+    "note": "这是全市路网提取范围，不是‘全中国’。摄像头硬排除只启用六环内进京证相关点。"
+  },
+  "initial_view": {
+    "name": "打开时的默认视野，可平移缩放至全市路网提取范围",
+    "west": 116.2,
+    "east": 116.6,
+    "south": 39.75,
+    "north": 40.15,
+    "note": "默认视野只为打开地图，不是算路边界。算路与搜索使用全市提取范围。"
   },
   "citywide_preprocessed": true,
-  "citywide_not_in_this_static_pack": true,
+  "citywide_in_this_static_pack": true,
+  "citywide_not_in_this_static_pack": false,
+  "camera_filter": {
+    "label": "只开启六环内进京证相关点（含兼拍早晚高峰与 typo）。六环外与仅早晚高峰已关闭。六环字段缺失或异常未当作六环内，仅作风险。路网为全市，不按六环裁切。",
+    "selection": {
+      "candidate_count": 5559,
+      "hard_by_type": {
+        "拍进京证": 5196,
+        "进京证与早晚高峰": 362,
+        "进京证与早晩高峰": 1
+      },
+      "dropped_six_ring_out_jinjingzheng": 1113,
+      "ring_unknown_jinjingzheng": 7,
+      "peak_only_count": 327,
+      "six_ring_value_counts_all": {
+        "0": 5881,
+        "1": 1118,
+        "null": 7
+      },
+      "cross_counts": {
+        "inside|拍早晚高峰": 322,
+        "inside|拍进京证": 5196,
+        "inside|进京证与早晚高峰": 362,
+        "inside|进京证与早晩高峰": 1,
+        "outside|拍早晚高峰": 5,
+        "outside|拍进京证": 1075,
+        "outside|进京证与早晚高峰": 38,
+        "unknown|拍进京证": 7
+      }
+    }
+  },
   "match_report_summary": {
-    "candidate_count": 6679,
+    "candidate_count": 5559,
     "status_counts": {
-      "matched": 4853,
-      "ambiguous": 1806,
-      "unmatched": 20
+      "matched": 4047,
+      "ambiguous": 1494,
+      "unmatched": 18
     },
     "nearest_distance_bands_cumulative": {
-      "le_25m": 6652,
-      "le_40m": 6659,
-      "le_80m": 6664,
-      "le_150m": 6667
+      "le_25m": 5536,
+      "le_40m": 5541,
+      "le_80m": 5546,
+      "le_150m": 5549
     },
-    "excluded_directed_edges": 6958,
-    "excluded_length_m_sum": 652532.9,
-    "route_segments_citywide": 288016
+    "excluded_directed_edges": 5593,
+    "excluded_length_m_sum": 530545.2,
+    "route_segments_citywide": 287299
   },
   "extract_counts": {
-    "road_features": 5047,
-    "matched_cameras_in_bbox": 145,
-    "risk_cameras_in_bbox": 80,
-    "excluded_segments_in_bbox": 333
+    "matched_cameras": 4047,
+    "risk_cameras": 1519,
+    "excluded_segments": 6739
   },
   "file_bytes": {
-    "roads.geojson": 1713125,
-    "cameras.geojson": 41337,
-    "excluded.geojson": 71753,
-    "network.pkl": 210544624
+    "cameras.geojson": 1046128,
+    "cameras.geojson.gz": 151451,
+    "excluded.geojson": 1818096,
+    "excluded.geojson.gz": 336507,
+    "network.json": 35435135,
+    "network.json.gz": 10948658,
+    "places.json": 19669737,
+    "places.json.gz": 3746780,
+    "risks.geojson": 396117,
+    "risks.geojson.gz": 57765,
+    "roads.geojson": 10679687,
+    "roads.geojson.gz": 1375085,
+    "scope.json": 3921
   },
   "attribution": "Road data © OpenStreetMap contributors, ODbL 1.0. https://www.openstreetmap.org/copyright",
   "disclaimer": "本页是本地路线验证原型，不是免罚保证。坐标假设未确认。100 米是沿路工程假设。",
   "static_only": true,
   "allow_api_fallback": false,
-  "suggested_test_points": {
-    "note": "静态包（无后端）在验证范围内可互通的示例，不是全市保证。请在地图上点选附近道路。",
-    "start": {
-      "lng": 116.41924,
-      "lat": 39.94619,
-      "hint": "验证范围东北一侧道路"
+  "example_places": {
+    "note": "须在搜索结果中点选下列确切 OSM 编号。同名其他要素可能落在排除区间内，不能当作同一点。未把排除段端点改到可通行位置来凑结果。",
+    "success": {
+      "start_query": "东直门",
+      "end_query": "月坛南街",
+      "start": {
+        "name": "东直门",
+        "id": "n5200295052",
+        "osm": {
+          "type": "node",
+          "id": 5200295052
+        },
+        "lng": 116.42809,
+        "lat": 39.938659,
+        "kind": "place=neighbourhood",
+        "kind_zh": "片区"
+      },
+      "end": {
+        "name": "月坛南街",
+        "id": "w1011189564",
+        "osm": {
+          "type": "way",
+          "id": 1011189564
+        },
+        "lng": 116.343192,
+        "lat": 39.91258,
+        "kind": "highway=secondary",
+        "kind_zh": "道路"
+      },
+      "expect": "ok 或 ok_with_unconfirmed_risk，可出现蓝线"
     },
-    "end": {
-      "lng": 116.336,
-      "lat": 39.90591,
-      "hint": "验证范围西南一侧道路"
+    "legal_reject": {
+      "start_query": "东直门",
+      "end_query": "月坛南街",
+      "start": {
+        "name": "东直门",
+        "id": "n5200295052",
+        "osm": {
+          "type": "node",
+          "id": 5200295052
+        },
+        "lng": 116.42809,
+        "lat": 39.938659,
+        "kind": "place=neighbourhood"
+      },
+      "end": {
+        "name": "月坛南街",
+        "id": "w1011189563",
+        "osm": {
+          "type": "way",
+          "id": 1011189563
+        },
+        "lng": 116.349029,
+        "lat": 39.912517,
+        "kind": "highway=secondary"
+      },
+      "expect": "end_in_exclusion，不出现蓝线，这是合法拒绝"
     },
-    "expect": "静态 JS 实测可通过，并提示附近未确认点；不是免罚保证。"
-  },
-  "previous_demo_points_note": "此前桌面实测的 116.33875,39.91698→116.43004,39.89959 在全市 API 上可规划；终点靠近验证框南缘，静态包可能因范围/连通性给出 no_path。"
+    "legal_reject_start": {
+      "name": "官园桥",
+      "id": "n331880663",
+      "osm": {
+        "type": "node",
+        "id": 331880663
+      },
+      "lng": 116.34947,
+      "lat": 39.930936,
+      "kind": "highway=traffic_signals",
+      "expect": "start_in_exclusion，不把端点挪出排除区"
+    },
+    "user_names": {
+      "start": {
+        "name": "北七佳园",
+        "id": "w679672532",
+        "osm": {
+          "type": "way",
+          "id": 679672532
+        },
+        "lng": 116.44313,
+        "lat": 40.100284,
+        "kind": "landuse=residential"
+      },
+      "end": [
+        {
+          "name": "龙德广场",
+          "id": "r16672016",
+          "osm": {
+            "type": "relation",
+            "id": 16672016
+          },
+          "lng": 116.409171,
+          "lat": 40.058225,
+          "kind": "shop=mall"
+        },
+        {
+          "name": "龙德广场",
+          "id": "w1104052487",
+          "osm": {
+            "type": "way",
+            "id": 1104052487
+          },
+          "lng": 116.40951,
+          "lat": 40.058508,
+          "kind": "landuse=retail"
+        }
+      ],
+      "note": "两处均在全市提取范围内可检索。质心距最近机动车道约 101 米与 123 米，会吸附到最近道路并明确说明距离，不改写坐标、不改选其他同名点。在该吸附点上当前无有向通路，规划返回 no_path，需在地图上另点附近可通行道路。不要把 Dunkin/龙德嘉园等其他同名或别名点当作龙德广场。"
+    },
+    "search_note": "检索“春秀路小区”时，OSM 仅有公交站台/站区域，没有住宅小区要素。结果用中文类别标明，不能当作小区入口。"
+  }
 }
