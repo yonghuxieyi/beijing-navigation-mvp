@@ -24,6 +24,8 @@
   let endMarker = null;
   let map;
   let placesIndex = [];
+  let placesReady = false;
+  let placesLoadError = null;
   let worker = null;
   let workerReady = false;
   let routeReqId = 0;
@@ -175,9 +177,40 @@
     return true;
   }
 
+  function showSuggestMessage(which, text) {
+    suggestEl.hidden = false;
+    suggestEl.dataset.which = which;
+    suggestEl.innerHTML = "";
+    const empty = document.createElement("div");
+    empty.className = "suggest-empty";
+    empty.textContent = text;
+    suggestEl.appendChild(empty);
+  }
+
+  function refreshPendingSuggests() {
+    const startQ = (startInput.value || "").trim();
+    const endQ = (endInput.value || "").trim();
+    if (pick === "end" && endQ.length >= 2) renderSuggest("end", endInput.value);
+    else if (startQ.length >= 2) renderSuggest("start", startInput.value);
+    else if (endQ.length >= 2) renderSuggest("end", endInput.value);
+  }
+
   function renderSuggest(which, query) {
     if (!window.PlaceSearch) {
       hideSuggest();
+      return;
+    }
+    const q = window.PlaceSearch.normalizeQuery ? window.PlaceSearch.normalizeQuery(query) : String(query || "").trim();
+    if (!q || q.length < 2) {
+      hideSuggest();
+      return;
+    }
+    if (placesLoadError) {
+      showSuggestMessage(which, "地点索引加载失败：" + placesLoadError + "。这不是“没有该地点”，请稍后重试或刷新。");
+      return;
+    }
+    if (!placesReady) {
+      showSuggestMessage(which, "地点索引仍在加载，完成后会自动列出候选。当前文字还不是坐标，请稍候，不要当成搜不到。");
       return;
     }
     const r = window.PlaceSearch.searchPlaces(placesIndex, query, 12);
@@ -386,6 +419,7 @@
 
     map.on("load", async () => {
       startWorker();
+      try {
       const [roads, excluded, cameras, risks, placesDoc] = await Promise.all([
         fetchJsonGz("data/roads.geojson.gz"),
         fetchJsonGz("data/excluded.geojson.gz").catch(() => fetch("data/excluded.geojson").then((r) => r.json())),
@@ -394,6 +428,15 @@
         fetchJsonGz("data/places.json.gz"),
       ]);
       placesIndex = (placesDoc && placesDoc.places) || [];
+      if (!placesIndex.length) {
+        placesLoadError = "地点索引为空";
+        placesReady = false;
+        refreshPendingSuggests();
+        throw new Error(placesLoadError);
+      }
+      placesReady = true;
+      placesLoadError = null;
+      refreshPendingSuggests();
       map.addSource("roads", { type: "geojson", data: roads });
       map.addSource("excluded", { type: "geojson", data: excluded });
       map.addSource("cameras", { type: "geojson", data: cameras });
@@ -420,6 +463,12 @@
         id: "risks", type: "circle", source: "risks", minzoom: 11,
         paint: { "circle-radius": 4, "circle-color": "#fff", "circle-stroke-color": "#8a5a00", "circle-stroke-width": 1.5 },
       });
+      } catch (err) {
+        placesLoadError = String(err && err.message ? err.message : err);
+        placesReady = false;
+        noteEl.textContent = (noteEl.textContent || "") + " 地图或地点数据加载失败：" + placesLoadError + "。失败不会被显示成“没有该地点”。";
+        refreshPendingSuggests();
+      }
     });
 
     map.on("click", (e) => placeFromMap(pick, e.lngLat));
@@ -429,6 +478,8 @@
     endInput.addEventListener("focus", () => setPick("end"));
     startInput.addEventListener("input", () => onTyped("start"));
     endInput.addEventListener("input", () => onTyped("end"));
+    startInput.addEventListener("compositionend", () => onTyped("start"));
+    endInput.addEventListener("compositionend", () => onTyped("end"));
     startInput.addEventListener("keydown", (ev) => {
       if (ev.key === "Escape") hideSuggest();
     });
