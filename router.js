@@ -541,8 +541,11 @@
       if (cand) { best = cand; usedS = pr[0]; usedE = pr[1]; break; }
     }
     if (!best) {
-      return { ok: false, status: "no_path", start_snap: usedS, end_snap: usedE,
-        notes: ["在当前全市路网提取范围的排除约束和转向限制下未找到路径。"] };
+      const notes = [];
+      const es = extendedSnapNote("start", usedS, maxM); if (es) notes.push(es);
+      const ee = extendedSnapNote("end", usedE, maxM); if (ee) notes.push(ee);
+      notes.push("不是检索失败或超范围。在沿路 100 米排除约束和转向限制下，从已吸附道路无法到达终点已吸附道路。未自动改选其他道路或修改终点。");
+      return { ok: false, status: "no_path", start_snap: usedS, end_snap: usedE, notes: notes };
     }
     const col = collision(net, best.walked);
     const risks = nearbyUnconfirmed(best.coords, net.risks);
