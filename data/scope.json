@@ -1,0 +1,62 @@
+{
+  "generated_at": "2026-11-22 20:50:43 CST",
+  "crs": "OSM 路网为 WGS84。点位按未确认的 GCJ-02→WGS84 假设转换后叠加。",
+  "scope": {
+    "name": "第一版验证范围（西直门—东直门—复兴门一带，不是全北京）",
+    "west": 116.33,
+    "east": 116.44,
+    "south": 39.9,
+    "north": 39.96,
+    "note": "全北京路网与点位已在本地预处理；浏览器静态包先只放入该范围，避免悄悄截取却写成全市。"
+  },
+  "citywide_preprocessed": true,
+  "citywide_not_in_this_static_pack": true,
+  "match_report_summary": {
+    "candidate_count": 6679,
+    "status_counts": {
+      "matched": 4853,
+      "ambiguous": 1806,
+      "unmatched": 20
+    },
+    "nearest_distance_bands_cumulative": {
+      "le_25m": 6652,
+      "le_40m": 6659,
+      "le_80m": 6664,
+      "le_150m": 6667
+    },
+    "excluded_directed_edges": 6958,
+    "excluded_length_m_sum": 652532.9,
+    "route_segments_citywide": 288016
+  },
+  "extract_counts": {
+    "road_features": 5047,
+    "matched_cameras_in_bbox": 145,
+    "risk_cameras_in_bbox": 80,
+    "excluded_segments_in_bbox": 333
+  },
+  "file_bytes": {
+    "roads.geojson": 1713125,
+    "cameras.geojson": 41337,
+    "excluded.geojson": 71753,
+    "network.pkl": 210544624
+  },
+  "attribution": "Road data © OpenStreetMap contributors, ODbL 1.0. https://www.openstreetmap.org/copyright",
+  "disclaimer": "本页是本地路线验证原型，不是免罚保证。坐标假设未确认。100 米是沿路工程假设。",
+  "static_only": true,
+  "allow_api_fallback": false,
+  "suggested_test_points": {
+    "note": "静态包（无后端）在验证范围内可互通的示例，不是全市保证。请在地图上点选附近道路。",
+    "start": {
+      "lng": 116.41924,
+      "lat": 39.94619,
+      "hint": "验证范围东北一侧道路"
+    },
+    "end": {
+      "lng": 116.336,
+      "lat": 39.90591,
+      "hint": "验证范围西南一侧道路"
+    },
+    "expect": "静态 JS 实测可通过，并提示附近未确认点；不是免罚保证。"
+  },
+  "previous_demo_points_note": "此前桌面实测的 116.33875,39.91698→116.43004,39.89959 在全市 API 上可规划；终点靠近验证框南缘，静态包可能因范围/连通性给出 no_path。"
+}

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="description" content="本地进京证避让路线验证原型。不是免罚保证。坐标假设未确认。">
+  <meta name="theme-color" content="#efeee9">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <title>进京证避让路线验证</title>
+  <link rel="stylesheet" href="vendor/maplibre-gl.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="map"></div>
+  <div class="mode-hint" id="hint"></div>
+  <div class="sheet">
+    <div class="row" id="row-start">
+      <span class="dot start"></span>
+      <div class="lab">起点</div>
+      <div class="val">
+        <input id="start-input" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="输入小区或道路名称，或点地图">
+        <div class="sub" id="start-sub">未选择。输入后须点选候选，文字本身不是坐标。</div>
+      </div>
+    </div>
+    <div class="row" id="row-end">
+      <span class="dot end"></span>
+      <div class="lab">终点</div>
+      <div class="val">
+        <input id="end-input" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="输入小区或道路名称，或点地图">
+        <div class="sub" id="end-sub">未选择。输入后须点选候选，文字本身不是坐标。</div>
+      </div>
+    </div>
+    <div class="suggest" id="suggest" hidden></div>
+    <div class="result">
+      <div class="cell">
+        <div class="k">距离</div>
+        <div class="v" id="dist">—</div>
+      </div>
+      <div class="cell">
+        <div class="k">时长（估算）</div>
+        <div class="v" id="dur">—</div>
+      </div>
+    </div>
+    <div class="note" id="note">
+      本地验证原型，不是免罚保证。点位按未确认的 GCJ-02→WGS84 假设转换。100 米为沿关联道路的工程假设，不是官方拍摄距离。当前地图范围见下方，不是全北京。地点检索仅含已命名的 OSM 要素，不保证所有小区。
+    </div>
+    <button class="plan" id="btn" disabled>开始规划</button>
+  </div>
+  <script src="vendor/maplibre-gl.js"></script>
+  <script src="router.js"></script>
+  <script src="places.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
