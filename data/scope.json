@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-22 22:17:28 CST",
+  "generated_at": "2026-11-22 22:53:23 CST",
   "crs": "OSM 路网为 WGS84。点位按未确认的 GCJ-02→WGS84 假设转换后叠加。",
   "scope": {
     "name": "北京市（OpenStreetMap Geofabrik 北京提取范围，路网不按六环裁切）",
@@ -62,29 +62,29 @@
       "le_80m": 5546,
       "le_150m": 5549
     },
-    "excluded_directed_edges": 5593,
-    "excluded_length_m_sum": 530545.2,
-    "route_segments_citywide": 287299
+    "excluded_directed_edges": 4515,
+    "excluded_length_m_sum": 473182.5,
+    "route_segments_citywide": 287842
   },
   "extract_counts": {
     "matched_cameras": 4047,
     "risk_cameras": 1519,
-    "excluded_segments": 6739
+    "excluded_segments": 5505
   },
   "file_bytes": {
-    "cameras.geojson": 1046128,
-    "cameras.geojson.gz": 151451,
-    "excluded.geojson": 1818096,
-    "excluded.geojson.gz": 336507,
-    "network.json": 35435135,
-    "network.json.gz": 10948658,
+    "excluded.geojson": 1474014,
+    "excluded.geojson.gz": 289695,
+    "network.json": 35390130,
     "places.json": 19669737,
+    "cameras.geojson": 1046128,
     "places.json.gz": 3746780,
-    "risks.geojson": 396117,
-    "risks.geojson.gz": 57765,
+    "cameras.geojson.gz": 151451,
     "roads.geojson": 10679687,
+    "network.json.gz": 10946035,
     "roads.geojson.gz": 1375085,
-    "scope.json": 3921
+    "scope.json": 6533,
+    "risks.geojson.gz": 57765,
+    "risks.geojson": 396117
   },
   "attribution": "Road data © OpenStreetMap contributors, ODbL 1.0. https://www.openstreetmap.org/copyright",
   "disclaimer": "本页是本地路线验证原型，不是免罚保证。坐标假设未确认。100 米是沿路工程假设。",
@@ -149,16 +149,17 @@
       "expect": "end_in_exclusion，不出现蓝线，这是合法拒绝"
     },
     "legal_reject_start": {
-      "name": "官园桥",
-      "id": "n331880663",
+      "name": "月坛南街",
+      "id": "w1011189563",
       "osm": {
-        "type": "node",
-        "id": 331880663
+        "type": "way",
+        "id": 1011189563
       },
-      "lng": 116.34947,
-      "lat": 39.930936,
-      "kind": "highway=traffic_signals",
-      "expect": "start_in_exclusion，不把端点挪出排除区"
+      "lng": 116.349029,
+      "lat": 39.912517,
+      "kind": "highway=secondary",
+      "expect": "作为起点时 start_in_exclusion，不把端点挪出排除区",
+      "note": "官园桥 n331880663 是路口节点。在剩余排除不再跨到不同路名交叉路之后，该点不再落在硬排除区间内，因此不再用作拒绝示例。"
     },
     "user_names": {
       "start": {
@@ -196,7 +197,10 @@
           "kind": "landuse=retail"
         }
       ],
-      "note": "两处均在全市提取范围内可检索。质心距最近机动车道约 101 米与 123 米，会吸附到最近道路并明确说明距离，不改写坐标、不改选其他同名点。在该吸附点上当前无有向通路，规划返回 no_path，需在地图上另点附近可通行道路。不要把 Dunkin/龙德嘉园等其他同名或别名点当作龙德广场。"
+      "note": "两处均在全市提取范围内可检索。须点选 北七佳园 w679672532 与 龙德广场 mall r16672016（零售用地 w1104052487 也可规划，吸附道路不同）。质心距最近机动车道约 101 米与 123 米，会吸附到最近道路并明确说明距离，不改写坐标、不改选其他同名点。路线约 13.9 公里：北七佳园-七北南路-北七家西路-七北路-七星路-无名连接段-北清路-上承路-奥北公园西路-奥北公园路-立汤路-中东路-立汤路-龙德广场。附近 150 米内有 6 个歧义进京证点未进入硬排除，不能当作已避开。不要把 Dunkin/龙德嘉园等其他同名或别名点当作龙德广场。",
+      "expect": "ok 或 ok_with_unconfirmed_risk，可出现蓝线",
+      "road_sequence": "北七佳园-七北南路-北七家西路-七北路-七星路-无名连接段-北清路-上承路-奥北公园西路-奥北公园路-立汤路-中东路-立汤路-龙德广场",
+      "distance_m": 13935.1
     },
     "search_note": "检索“春秀路小区”时，OSM 仅有公交站台/站区域，没有住宅小区要素。结果用中文类别标明，不能当作小区入口。"
   }
